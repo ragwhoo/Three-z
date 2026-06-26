@@ -194,7 +194,7 @@ export class ScenePanel {
           <div class="sp-row">
             <span class="sp-label">Per Mat</span>
             <span style="display:flex;align-items:center;gap:4px">
-              <span id="sp-mat-swatch" style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,0.1);background:#ccc"></span>
+              <span id="sp-mat-swatch" style="display:inline-block;width:24px;height:24px;border-radius:4px;border:2px solid rgba(0,0,0,0.2);background:#ccc;flex-shrink:0"></span>
               <select id="sp-mat-select" style="width:100px">
                 <option value="">— none —</option>
               </select>
