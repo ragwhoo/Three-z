@@ -103,7 +103,6 @@ loader.load(
     }
 
     modelLoaded = true
-    moveModel()
   },
   (xhr) => {
     const percent = (xhr.loaded / xhr.total) * 100
@@ -170,9 +169,9 @@ const sectionTransitions = [
     position: { x: 1.5 + X_OFFSET, y: -0.1, z: -0.5 },
     rotation: { x: 0.05, y: Math.PI * 0.4, z: 0 },
     camera: {
-      position: { x: 4.212625, y: 5.590030, z: -1.166363 },
-      rotation: { x: -1.570796, y: -0.000001, z: -1.349721 },
-      target: { x: 4.212625, y: 5.560000, z: -1.166363 },
+      position: { x: 7.508443, y: 0.070973, z: 0.078898 },
+      rotation: { x: -0.495405, y: 0.337226, z: 0.176917 },
+      target: { x: 7.500350, y: 0.060000, z: 0.058591 },
     },
   },
   {
@@ -256,6 +255,8 @@ function animateCameraTo(toPos, toTarget) {
   })
 }
 
+let currentSectionId = null
+
 function moveModel() {
   if (!modelLoaded || !model) return
 
@@ -270,7 +271,8 @@ function moveModel() {
     }
   })
 
-  if (!activeId) return
+  if (!activeId || activeId === currentSectionId) return
+  currentSectionId = activeId
 
   const transitionIndex = sectionTransitions.findIndex((t) => t.id === activeId)
   if (transitionIndex < 0) return
@@ -358,7 +360,12 @@ Object.assign(scrollLockEl.style, {
 })
 document.body.appendChild(scrollLockEl)
 
-let scrollLockVisible = false
+function applyScrollLock(locked) {
+  document.body.style.overflowY = locked ? 'hidden' : ''
+  controls.enableZoom = locked
+}
+
+applyScrollLock(true)
 
 document.addEventListener('keydown', (e) => {
   if (e.key === '5' && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -369,17 +376,13 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '6' && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return
     scrollLocked = !scrollLocked
-    scrollLockVisible = true
+    applyScrollLock(scrollLocked)
     scrollLockEl.style.display = 'flex'
     scrollLockEl.textContent = scrollLocked ? 'Scroll: OFF (6 to toggle)' : 'Scroll: ON (6 to toggle)'
     clearTimeout(scrollLockEl._hideTimer)
     scrollLockEl._hideTimer = setTimeout(() => { scrollLockEl.style.display = 'none' }, 2000)
   }
 })
-
-window.addEventListener('wheel', (e) => {
-  if (scrollLocked) e.preventDefault()
-}, { passive: false })
 
 window.addEventListener('resize', () => {
   const width = window.innerWidth
