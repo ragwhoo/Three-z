@@ -193,11 +193,9 @@ export class ScenePanel {
           <div class="sp-sep"></div>
           <div class="sp-row">
             <span class="sp-label">Per Mat</span>
-            <span style="display:flex;align-items:center;gap:4px">
-              <span id="sp-mat-swatch" style="display:inline-block;width:24px;height:24px;border-radius:4px;border:2px solid rgba(0,0,0,0.2);background:#ccc;flex-shrink:0"></span>
-              <select id="sp-mat-select" style="width:100px">
-                <option value="">— none —</option>
-              </select>
+            <span style="display:flex;align-items:center;gap:4px;position:relative">
+              <div id="sp-mat-picker" style="display:none;position:absolute;top:100%;right:0;z-index:10;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:6px;padding:4px;max-height:180px;overflow-y:auto;width:180px;box-shadow:0 8px 24px rgba(0,0,0,0.12)"></div>
+              <button class="sp-btn sm" id="sp-mat-picker-btn" style="min-width:80px;text-align:left">Select...</button>
             </span>
           </div>
           <div id="sp-permat-controls" style="display:none">
@@ -479,11 +477,12 @@ export class ScenePanel {
     const metal = this.el.querySelector('#sp-mat-metalness')
     const envInt = this.el.querySelector('#sp-mat-envint')
     const color = this.el.querySelector('#sp-mat-color')
-    const matSelect = this.el.querySelector('#sp-mat-select')
     const perMatControls = this.el.querySelector('#sp-permat-controls')
     const perRough = this.el.querySelector('#sp-permat-roughness')
     const perMetal = this.el.querySelector('#sp-permat-metalness')
     const perColor = this.el.querySelector('#sp-permat-color')
+    const pickerBtn = this.el.querySelector('#sp-mat-picker-btn')
+    const picker = this.el.querySelector('#sp-mat-picker')
 
     toggle.addEventListener('click', () => {
       toggle.classList.toggle('active')
@@ -495,32 +494,73 @@ export class ScenePanel {
     envInt.addEventListener('input', () => this.materials.setGlobalEnvIntensity(parseFloat(envInt.value)))
     color.addEventListener('input', () => this.materials.setGlobalColor(parseInt(color.value.slice(1), 16)))
 
-    const matSwatch = this.el.querySelector('#sp-mat-swatch')
-    matSelect.addEventListener('change', () => {
-      if (matSelect.value) {
+    let selectedMat = null
+
+    const selectMat = (name) => {
+      selectedMat = name
+      if (name) {
         perMatControls.style.display = 'block'
-        const props = this.materials.getMaterialsMap()[matSelect.value]
+        pickerBtn.textContent = name.length > 18 ? name.slice(0, 16) + '…' : name
+        const props = this.materials.getMaterialsMap()[name]
         if (props) {
           perRough.value = props.roughness ?? 0.5
           perMetal.value = props.metalness ?? 0.5
           const hex = '#' + (props.color ?? 0xcccccc).toString(16).padStart(6, '0')
           perColor.value = hex
-          matSwatch.style.background = hex
         }
       } else {
         perMatControls.style.display = 'none'
-        matSwatch.style.background = '#ccc'
+        pickerBtn.textContent = 'Select...'
       }
+      picker.style.display = 'none'
+    }
+
+    pickerBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      picker.style.display = picker.style.display === 'block' ? 'none' : 'block'
+      this._refreshMatPicker()
     })
 
+    document.addEventListener('click', () => { picker.style.display = 'none' })
+
     perRough.addEventListener('input', () => {
-      if (matSelect.value) this.materials.setPerMaterialOverride(matSelect.value, 'roughness', parseFloat(perRough.value))
+      if (selectedMat) this.materials.setPerMaterialOverride(selectedMat, 'roughness', parseFloat(perRough.value))
     })
     perMetal.addEventListener('input', () => {
-      if (matSelect.value) this.materials.setPerMaterialOverride(matSelect.value, 'metalness', parseFloat(perMetal.value))
+      if (selectedMat) this.materials.setPerMaterialOverride(selectedMat, 'metalness', parseFloat(perMetal.value))
     })
     perColor.addEventListener('input', () => {
-      if (matSelect.value) this.materials.setPerMaterialOverride(matSelect.value, 'color', parseInt(perColor.value.slice(1), 16))
+      if (selectedMat) this.materials.setPerMaterialOverride(selectedMat, 'color', parseInt(perColor.value.slice(1), 16))
+    })
+
+    this._selectMaterial = selectMat
+  }
+
+  _refreshMatPicker() {
+    const picker = this.el.querySelector('#sp-mat-picker')
+    const names = this.materials.getMaterialNames()
+    const props = this.materials.getMaterialsMap()
+    picker.innerHTML = ''
+    if (names.length === 0) {
+      picker.innerHTML = '<div style="padding:8px;font-size:10px;color:#999">No materials</div>'
+      return
+    }
+    names.forEach((name) => {
+      const item = document.createElement('div')
+      const p = props[name]
+      const hex = p && p.color !== undefined
+        ? '#' + p.color.toString(16).padStart(6, '0')
+        : '#ccc'
+      item.style.cssText =
+        'display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;border-radius:4px;font-size:11px'
+      item.innerHTML = `<span style="display:inline-block;width:16px;height:16px;border-radius:3px;border:1px solid rgba(0,0,0,0.15);background:${hex};flex-shrink:0"></span><span>${name}</span>`
+      item.addEventListener('mouseenter', () => { item.style.background = 'rgba(0,0,0,0.04)' })
+      item.addEventListener('mouseleave', () => { item.style.background = '' })
+      item.addEventListener('click', (e) => {
+        e.stopPropagation()
+        if (this._selectMaterial) this._selectMaterial(name)
+      })
+      picker.appendChild(item)
     })
   }
 
@@ -632,7 +672,6 @@ export class ScenePanel {
       this.el.querySelector('#sp-mat-metalness').value = d.mat.metalness
       this.el.querySelector('#sp-mat-envint').value = d.mat.envInt
       this.el.querySelector('#sp-mat-color').value = d.mat.color
-      this.el.querySelector('#sp-mat-select').value = ''
       this.el.querySelector('#sp-permat-controls').style.display = 'none'
       this.el.querySelector('#sp-model-name').textContent = ''
       this._refreshMatSelect()
@@ -694,6 +733,8 @@ export class ScenePanel {
       this._createLightUI(id, type, config)
     })
 
+    this._refreshMatSelect()
+
     const d = state?.env
     if (d) {
       this.el.querySelector('#sp-bg-color').value = d.background || '#f0f0f0'
@@ -725,22 +766,9 @@ export class ScenePanel {
   }
 
   _refreshMatSelect() {
-    const select = this.el.querySelector('#sp-mat-select')
-    select.innerHTML = '<option value="">— none —</option>'
-    const names = this.materials.getMaterialNames()
-    const props = this.materials.getMaterialsMap()
-    names.forEach((name) => {
-      const opt = document.createElement('option')
-      opt.value = name
-      const p = props[name]
-      if (p && p.color !== undefined) {
-        const hex = '#' + p.color.toString(16).padStart(6, '0')
-        opt.textContent = `${name} (${hex})`
-      } else {
-        opt.textContent = name
-      }
-      select.appendChild(opt)
-    })
+    const picker = this.el.querySelector('#sp-mat-picker')
+    picker.innerHTML = ''
+    if (this._selectMaterial) this._selectMaterial(null)
   }
 
   _setupDrag() {
