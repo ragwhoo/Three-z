@@ -17,16 +17,9 @@ export class ScenePanel {
       grid: false,
       shadows: true,
       env: { preset: 'studio', intensity: 1 },
-      lights: {
-        ambient: { int: 0.4, color: '#ffffff' },
-        hemi: { int: 0.8, color: '#87ceeb' },
-        'hemi-gnd': { int: 0.8, color: '#362d24' },
-        key: { int: 2.5, color: '#ffffff', pos: { x: 5, y: 8, z: 5 } },
-        fill: { int: 0.8, color: '#4488ff', pos: { x: -4, y: 2, z: -3 } },
-        rim: { int: 0.6, color: '#ff8844', pos: { x: -2, y: 1, z: -5 } },
-      },
       mat: { enabled: false, roughness: 0.4, metalness: 0.3, envInt: 1, color: '#cccccc' },
     }
+    this.lightEntries = {}
 
     this._build()
     this._bind()
@@ -111,44 +104,26 @@ export class ScenePanel {
   }
 
   _lightingSection() {
-    const lights = [
-      { id: 'ambient', label: 'Ambient', hasColor: true, hasPos: false },
-      { id: 'hemi', label: 'Hemi Sky', hasColor: true, hasPos: false },
-      { id: 'hemi-gnd', label: 'Hemi Gnd', hasColor: true, hasPos: false },
-      { id: 'key', label: 'Key', hasColor: true, hasPos: true },
-      { id: 'fill', label: 'Fill', hasColor: true, hasPos: true },
-      { id: 'rim', label: 'Rim', hasColor: true, hasPos: true },
-    ]
-    let html = `
+    return `
       <div class="sp-section" data-section="lighting">
         <div class="sp-section-header">
           Lighting
           <span class="arrow open">▸</span>
         </div>
-        <div class="sp-section-content" id="sp-sec-lighting">`
-    lights.forEach((l) => {
-      html += `
-        <div class="sp-row">
-          <span class="sp-label">${l.label}</span>
-          <span style="display:flex;align-items:center;gap:4px">
-            <input type="range" min="0" max="5" step="0.01" value="0" id="sp-light-${l.id}-int" style="width:60px" />
-            ${l.hasColor ? `<input type="color" id="sp-light-${l.id}-color" value="#ffffff" style="width:20px;height:20px" />` : ''}
-            ${l.hasPos ? `<span style="font-size:9px;color:#999">XYZ</span>` : ''}
-          </span>
-        </div>`
-      if (l.hasPos) {
-        html += `
-        <div class="sp-row" style="padding-left:64px">
-          <span style="display:flex;gap:4px;width:100%">
-            <input type="range" min="-10" max="10" step="0.1" value="0" id="sp-light-${l.id}-posx" style="width:28px" />
-            <input type="range" min="-10" max="10" step="0.1" value="0" id="sp-light-${l.id}-posy" style="width:28px" />
-            <input type="range" min="-10" max="10" step="0.1" value="0" id="sp-light-${l.id}-posz" style="width:28px" />
-          </span>
-        </div>`
-      }
-    })
-    html += `</div></div>`
-    return html
+        <div class="sp-section-content" id="sp-sec-lighting">
+          <div class="sp-row">
+            <select id="sp-add-light-type" style="flex:1">
+              <option value="ambient">Ambient</option>
+              <option value="directional">Directional</option>
+              <option value="point">Point</option>
+              <option value="spot">Spot</option>
+              <option value="hemisphere">Hemisphere</option>
+            </select>
+            <button class="sp-btn sm" id="sp-add-light-btn">+ Add</button>
+          </div>
+          <div id="sp-lighting-list"></div>
+        </div>
+      </div>`
   }
 
   _environmentSection() {
@@ -379,52 +354,67 @@ export class ScenePanel {
   }
 
   _bindLighting() {
-    const lightDefs = [
-      { id: 'ambient', colorDefault: '#ffffff', intDefault: 0.4, pos: false },
-      { id: 'hemi', colorDefault: '#87ceeb', intDefault: 0.8, pos: false },
-      { id: 'hemi-gnd', colorDefault: '#362d24', intDefault: 0.8, pos: false },
-      { id: 'key', colorDefault: '#ffffff', intDefault: 2.5, pos: true, posDefault: { x: 5, y: 8, z: 5 } },
-      { id: 'fill', colorDefault: '#4488ff', intDefault: 0.8, pos: true, posDefault: { x: -4, y: 2, z: -3 } },
-      { id: 'rim', colorDefault: '#ff8844', intDefault: 0.6, pos: true, posDefault: { x: -2, y: 1, z: -5 } },
-    ]
+    const list = this.el.querySelector('#sp-lighting-list')
+    const addBtn = this.el.querySelector('#sp-add-light-btn')
+    const typeSelect = this.el.querySelector('#sp-add-light-type')
 
-    lightDefs.forEach((def) => {
-      const intSlider = this.el.querySelector(`#sp-light-${def.id}-int`)
-      const colorPicker = this.el.querySelector(`#sp-light-${def.id}-color`)
+    addBtn.addEventListener('click', () => {
+      const type = typeSelect.value
+      const id = this.lighting.addLight(type)
+      if (!id) return
 
-      if (intSlider) {
-        intSlider.value = def.intDefault
-        intSlider.addEventListener('input', () => {
-          const lightId = def.id === 'hemi-gnd' ? 'hemi' : def.id
-          this.lighting.setIntensity(lightId, parseFloat(intSlider.value))
-        })
-      }
+      const entry = document.createElement('div')
+      entry.className = 'sp-lgt-entry'
+      entry.style.cssText = 'border:1px solid rgba(0,0,0,0.06);border-radius:6px;padding:6px;margin-top:6px;'
 
-      if (colorPicker) {
-        colorPicker.value = def.colorDefault
-        colorPicker.addEventListener('input', () => {
-          if (def.id === 'hemi-gnd') {
-            this.lighting.lights.hemi.groundColor.setHex(parseInt(colorPicker.value.slice(1), 16))
-          } else {
-            this.lighting.setColor(def.id, parseInt(colorPicker.value.slice(1), 16))
+      const hasPos = type === 'directional' || type === 'point' || type === 'spot'
+      const hasGround = type === 'hemisphere'
+
+      entry.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;color:rgba(0,0,0,0.4)">${type}</span>
+          <button class="sp-btn sm sp-lgt-remove" data-id="${id}" style="color:#e74c3c;border-color:rgba(231,76,60,0.2);padding:2px 6px;font-size:9px">✕</button>
+        </div>
+        <div class="sp-row">
+          <span class="sp-label" style="min-width:40px">Intensity</span>
+          <input type="range" min="0" max="5" step="0.01" value="1" data-id="${id}" data-prop="int" style="width:60px" />
+          <input type="color" value="#ffffff" data-id="${id}" data-prop="color" style="width:18px;height:18px" />
+        </div>
+        ${hasPos ? `
+        <div class="sp-row" style="padding-left:44px">
+          <input type="range" min="-10" max="10" step="0.1" value="0" data-id="${id}" data-prop="posx" style="width:26px" />
+          <input type="range" min="-10" max="10" step="0.1" value="${type === 'directional' ? 5 : 3}" data-id="${id}" data-prop="posy" style="width:26px" />
+          <input type="range" min="-10" max="10" step="0.1" value="0" data-id="${id}" data-prop="posz" style="width:26px" />
+        </div>` : ''}
+        ${hasGround ? `
+        <div class="sp-row">
+          <span class="sp-label" style="min-width:40px">Ground</span>
+          <input type="color" value="#362d24" data-id="${id}" data-prop="groundColor" style="width:18px;height:18px" />
+        </div>` : ''}
+      `
+
+      entry.querySelectorAll('input[type="range"], input[type="color"]').forEach((input) => {
+        input.addEventListener('input', () => {
+          const prop = input.dataset.prop
+          const val = input.type === 'color' ? parseInt(input.value.slice(1), 16) : parseFloat(input.value)
+          switch (prop) {
+            case 'int': this.lighting.updateIntensity(id, val); break
+            case 'color': this.lighting.updateColor(id, val); break
+            case 'groundColor': this.lighting.updateGroundColor(val); break
+            case 'posx': this.lighting.updatePosition(id, val, parseFloat(entry.querySelector('[data-prop="posy"]').value), parseFloat(entry.querySelector('[data-prop="posz"]').value)); break
+            case 'posy': this.lighting.updatePosition(id, parseFloat(entry.querySelector('[data-prop="posx"]').value), val, parseFloat(entry.querySelector('[data-prop="posz"]').value)); break
+            case 'posz': this.lighting.updatePosition(id, parseFloat(entry.querySelector('[data-prop="posx"]').value), parseFloat(entry.querySelector('[data-prop="posy"]').value), val); break
           }
         })
-      }
+      })
 
-      if (def.pos) {
-        const px = this.el.querySelector(`#sp-light-${def.id}-posx`)
-        const py = this.el.querySelector(`#sp-light-${def.id}-posy`)
-        const pz = this.el.querySelector(`#sp-light-${def.id}-posz`)
-        if (px) px.value = def.posDefault.x
-        if (py) py.value = def.posDefault.y
-        if (pz) pz.value = def.posDefault.z
-        const updatePos = () => {
-          this.lighting.setPosition(def.id, parseFloat(px.value), parseFloat(py.value), parseFloat(pz.value))
-        }
-        if (px) px.addEventListener('input', updatePos)
-        if (py) py.addEventListener('input', updatePos)
-        if (pz) pz.addEventListener('input', updatePos)
-      }
+      entry.querySelector('.sp-lgt-remove').addEventListener('click', () => {
+        this.lighting.removeLight(id)
+        entry.remove()
+      })
+
+      list.appendChild(entry)
+      this.lightEntries[id] = entry
     })
   }
 
@@ -564,20 +554,9 @@ export class ScenePanel {
       this.environment.setEnvPreset(d.env.preset)
       this.environment.setEnvIntensity(d.env.intensity)
 
-      Object.entries(d.lights).forEach(([id, cfg]) => {
-        const lightId = id === 'hemi-gnd' ? 'hemi' : id
-        this.lighting.setIntensity(lightId, cfg.int)
-        if (cfg.color) {
-          if (id === 'hemi-gnd') {
-            this.lighting.lights.hemi.groundColor.setHex(parseInt(cfg.color.slice(1), 16))
-          } else {
-            this.lighting.setColor(lightId, parseInt(cfg.color.slice(1), 16))
-          }
-        }
-        if (cfg.pos) {
-          this.lighting.setPosition(lightId, cfg.pos.x, cfg.pos.y, cfg.pos.z)
-        }
-      })
+      this.lighting.clearAll()
+      this.el.querySelector('#sp-lighting-list').innerHTML = ''
+      this.lightEntries = {}
 
       this.materials.setModel(null)
       this.materials.setEnabled(d.mat.enabled)
@@ -601,30 +580,6 @@ export class ScenePanel {
       this.el.querySelector('#sp-mat-select').value = ''
       this.el.querySelector('#sp-permat-controls').style.display = 'none'
       this.el.querySelector('#sp-model-name').textContent = ''
-
-      const lightDefs = [
-        { id: 'ambient', int: 0.4, color: '#ffffff' },
-        { id: 'hemi', int: 0.8, color: '#87ceeb' },
-        { id: 'hemi-gnd', int: 0.8, color: '#362d24' },
-        { id: 'key', int: 2.5, color: '#ffffff', pos: { x: 5, y: 8, z: 5 } },
-        { id: 'fill', int: 0.8, color: '#4488ff', pos: { x: -4, y: 2, z: -3 } },
-        { id: 'rim', int: 0.6, color: '#ff8844', pos: { x: -2, y: 1, z: -5 } },
-      ]
-      lightDefs.forEach((def) => {
-        const intSlider = this.el.querySelector(`#sp-light-${def.id}-int`)
-        if (intSlider) intSlider.value = def.int
-        const colorPicker = this.el.querySelector(`#sp-light-${def.id}-color`)
-        if (colorPicker) colorPicker.value = def.color
-        if (def.pos) {
-          const px = this.el.querySelector(`#sp-light-${def.id}-posx`)
-          const py = this.el.querySelector(`#sp-light-${def.id}-posy`)
-          const pz = this.el.querySelector(`#sp-light-${def.id}-posz`)
-          if (px) px.value = def.pos.x
-          if (py) py.value = def.pos.y
-          if (pz) pz.value = def.pos.z
-        }
-      })
-
       this._refreshMatSelect()
     })
   }

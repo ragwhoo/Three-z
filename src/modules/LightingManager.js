@@ -1,67 +1,77 @@
 import * as THREE from 'three'
 
+let _counter = 0
+
 export class LightingManager {
   constructor(scene) {
     this.scene = scene
     this.lights = {}
-
-    this._createLights()
   }
 
-  _createLights() {
-    this.lights.ambient = new THREE.AmbientLight(0xffffff, 0.4)
-    this.scene.add(this.lights.ambient)
+  addLight(type, config = {}) {
+    const id = `lgt-${_counter++}`
+    let light
 
-    this.lights.hemi = new THREE.HemisphereLight(0x87ceeb, 0x362d24, 0.8)
-    this.scene.add(this.lights.hemi)
-
-    this.lights.key = new THREE.DirectionalLight(0xffffff, 2.5)
-    this.lights.key.position.set(5, 8, 5)
-    this.lights.key.castShadow = true
-    this.lights.key.shadow.mapSize.width = 2048
-    this.lights.key.shadow.mapSize.height = 2048
-    this.lights.key.shadow.camera.near = 0.1
-    this.lights.key.shadow.camera.far = 30
-    this.lights.key.shadow.camera.left = -10
-    this.lights.key.shadow.camera.right = 10
-    this.lights.key.shadow.camera.top = 10
-    this.lights.key.shadow.camera.bottom = -10
-    this.lights.key.shadow.bias = -0.001
-    this.lights.key.shadow.normalBias = 0.02
-    this.lights.key.shadow.radius = 4
-    this.scene.add(this.lights.key)
-
-    this.lights.fill = new THREE.DirectionalLight(0x4488ff, 0.8)
-    this.lights.fill.position.set(-4, 2, -3)
-    this.scene.add(this.lights.fill)
-
-    this.lights.rim = new THREE.DirectionalLight(0xff8844, 0.6)
-    this.lights.rim.position.set(-2, 1, -5)
-    this.scene.add(this.lights.rim)
-  }
-
-  setIntensity(name, value) {
-    if (this.lights[name]) {
-      this.lights[name].intensity = value
+    switch (type) {
+      case 'ambient':
+        light = new THREE.AmbientLight(config.color || 0xffffff, config.intensity ?? 1)
+        break
+      case 'directional':
+        light = new THREE.DirectionalLight(config.color || 0xffffff, config.intensity ?? 1)
+        light.position.set(config.x ?? 0, config.y ?? 5, config.z ?? 0)
+        break
+      case 'point':
+        light = new THREE.PointLight(config.color || 0xffffff, config.intensity ?? 1, 30)
+        light.position.set(config.x ?? 0, config.y ?? 3, config.z ?? 0)
+        break
+      case 'spot':
+        light = new THREE.SpotLight(config.color || 0xffffff, config.intensity ?? 1, 30, Math.PI / 4, 0.5)
+        light.position.set(config.x ?? 0, config.y ?? 5, config.z ?? 0)
+        break
+      case 'hemisphere':
+        light = new THREE.HemisphereLight(config.color || 0x87ceeb, config.groundColor || 0x362d24, config.intensity ?? 1)
+        break
+      default:
+        return null
     }
+
+    light.name = id
+    this.scene.add(light)
+    this.lights[id] = { type, light }
+    return id
   }
 
-  setColor(name, hex) {
-    if (this.lights[name]) {
-      this.lights[name].color.setHex(hex)
-    }
+  removeLight(id) {
+    const entry = this.lights[id]
+    if (!entry) return
+    this.scene.remove(entry.light)
+    if (entry.light.dispose) entry.light.dispose()
+    delete this.lights[id]
   }
 
-  setPosition(name, x, y, z) {
-    if (this.lights[name] && this.lights[name].isDirectionalLight) {
-      this.lights[name].position.set(x, y, z)
-    }
+  updateIntensity(id, value) {
+    if (this.lights[id]) this.lights[id].light.intensity = value
   }
 
-  getPosition(name) {
-    if (this.lights[name] && this.lights[name].isDirectionalLight) {
-      return { x: this.lights[name].position.x, y: this.lights[name].position.y, z: this.lights[name].position.z }
-    }
-    return { x: 0, y: 0, z: 0 }
+  updateColor(id, hex) {
+    if (this.lights[id]) this.lights[id].light.color.setHex(hex)
+  }
+
+  updatePosition(id, x, y, z) {
+    const entry = this.lights[id]
+    if (entry && entry.light.position) entry.light.position.set(x, y, z)
+  }
+
+  updateGroundColor(hex) {
+    const hemi = Object.values(this.lights).find((e) => e.type === 'hemisphere')
+    if (hemi) hemi.light.groundColor.setHex(hex)
+  }
+
+  clearAll() {
+    Object.keys(this.lights).forEach((id) => this.removeLight(id))
+  }
+
+  getAll() {
+    return Object.entries(this.lights).map(([id, entry]) => ({ id, type: entry.type, light: entry.light }))
   }
 }
