@@ -41,6 +41,11 @@ export class EnvironmentManager {
     this.ground.material.color.setHex(color)
   }
 
+  setGroundHeight(y) {
+    this.ground.position.y = y
+    if (this.grid) this.grid.position.y = y + 0.001
+  }
+
   toggleGrid(visible) {
     if (visible && !this.grid) {
       const helper = new THREE.GridHelper(20, 20, 0xcccccc, 0xdddddd)

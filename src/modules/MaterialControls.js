@@ -96,4 +96,25 @@ export class MaterialControls {
     })
     return names
   }
+
+  getMaterialsMap() {
+    const map = {}
+    if (!this.model) return map
+    this.model.traverse((child) => {
+      if (child.isMesh && child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material]
+        mats.forEach((mat) => {
+          if (mat.name && !map[mat.name]) {
+            map[mat.name] = {
+              color: mat.color ? mat.color.getHex() : 0xffffff,
+              roughness: mat.roughness,
+              metalness: mat.metalness,
+              envIntensity: mat.envMapIntensity,
+            }
+          }
+        })
+      }
+    })
+    return map
+  }
 }

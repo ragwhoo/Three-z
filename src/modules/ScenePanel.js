@@ -13,7 +13,7 @@ export class ScenePanel {
     this.defaults = {
       camera: { pos: [5, 3, 5], target: [0, 0, 0], fov: 45 },
       bg: '#f0f0f0',
-      ground: { visible: true, color: '#f5f5f5' },
+      ground: { visible: true, color: '#f5f5f5', y: -2 },
       grid: false,
       shadows: true,
       env: { preset: 'studio', intensity: 1 },
@@ -98,6 +98,10 @@ export class ScenePanel {
           <div class="sp-row">
             <span class="sp-label">Shadows</span>
             <div class="sp-toggle active" id="sp-shadows-toggle"></div>
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Ground Y</span>
+            <input type="range" min="-5" max="5" step="0.01" value="-2" id="sp-ground-y" style="width:80px" />
           </div>
         </div>
       </div>`
@@ -351,6 +355,11 @@ export class ScenePanel {
       shadowsToggle.classList.toggle('active')
       this.environment.toggleShadows(shadowsToggle.classList.contains('active'))
     })
+
+    const groundY = this.el.querySelector('#sp-ground-y')
+    groundY.addEventListener('input', () => {
+      this.environment.setGroundHeight(parseFloat(groundY.value))
+    })
   }
 
   _bindLighting() {
@@ -477,6 +486,12 @@ export class ScenePanel {
     matSelect.addEventListener('change', () => {
       if (matSelect.value) {
         perMatControls.style.display = 'block'
+        const props = this.materials.getMaterialsMap()[matSelect.value]
+        if (props) {
+          perRough.value = props.roughness ?? 0.5
+          perMetal.value = props.metalness ?? 0.5
+          perColor.value = '#' + (props.color ?? 0xcccccc).toString(16).padStart(6, '0')
+        }
       } else {
         perMatControls.style.display = 'none'
       }
@@ -571,6 +586,7 @@ export class ScenePanel {
       this.environment.setBackground(d.bg)
       this.environment.setGroundVisible(d.ground.visible)
       this.environment.setGroundColor(parseInt(d.ground.color.slice(1), 16))
+      this.environment.setGroundHeight(d.ground.y)
       this.environment.toggleGrid(d.grid)
       this.environment.toggleShadows(d.shadows)
       this.environment.setEnvPreset(d.env.preset)
@@ -592,6 +608,7 @@ export class ScenePanel {
       this.el.querySelector('#sp-ground-color').value = d.ground.color
       this.el.querySelector('#sp-grid-toggle').classList.remove('active')
       this.el.querySelector('#sp-shadows-toggle').classList.add('active')
+      this.el.querySelector('#sp-ground-y').value = d.ground.y
       this.el.querySelector('#sp-env-preset').value = d.env.preset
       this.el.querySelector('#sp-env-intensity').value = d.env.intensity
       this.el.querySelector('#sp-mat-toggle').classList.remove('active')
@@ -609,10 +626,18 @@ export class ScenePanel {
   _refreshMatSelect() {
     const select = this.el.querySelector('#sp-mat-select')
     select.innerHTML = '<option value="">— none —</option>'
-    this.materials.getMaterialNames().forEach((name) => {
+    const names = this.materials.getMaterialNames()
+    const props = this.materials.getMaterialsMap()
+    names.forEach((name) => {
       const opt = document.createElement('option')
       opt.value = name
-      opt.textContent = name
+      const p = props[name]
+      if (p && p.color !== undefined) {
+        const hex = '#' + p.color.toString(16).padStart(6, '0')
+        opt.textContent = `${name} (${hex})`
+      } else {
+        opt.textContent = name
+      }
       select.appendChild(opt)
     })
   }

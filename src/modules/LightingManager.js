@@ -32,6 +32,18 @@ export class LightingManager {
       case 'directional':
         light = new THREE.DirectionalLight(config.color || 0xffffff, config.intensity ?? 1)
         light.position.set(config.x ?? 0, config.y ?? 5, config.z ?? 0)
+        light.castShadow = true
+        light.shadow.mapSize.width = 2048
+        light.shadow.mapSize.height = 2048
+        light.shadow.camera.near = 0.1
+        light.shadow.camera.far = 30
+        light.shadow.camera.left = -10
+        light.shadow.camera.right = 10
+        light.shadow.camera.top = 10
+        light.shadow.camera.bottom = -10
+        light.shadow.bias = -0.001
+        light.shadow.normalBias = 0.02
+        light.shadow.radius = 4
         break
       case 'point':
         light = new THREE.PointLight(config.color || 0xffffff, config.intensity ?? 1, 30)
