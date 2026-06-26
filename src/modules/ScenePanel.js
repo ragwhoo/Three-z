@@ -10,6 +10,24 @@ export class ScenePanel {
     this.collapsed = false
     this.sections = {}
 
+    this.defaults = {
+      camera: { pos: [5, 3, 5], target: [0, 0, 0], fov: 45 },
+      bg: '#f0f0f0',
+      ground: { visible: true, color: '#f5f5f5' },
+      grid: false,
+      shadows: true,
+      env: { preset: 'studio', intensity: 1 },
+      lights: {
+        ambient: { int: 0.4, color: '#ffffff' },
+        hemi: { int: 0.8, color: '#87ceeb' },
+        'hemi-gnd': { int: 0.8, color: '#362d24' },
+        key: { int: 2.5, color: '#ffffff', pos: { x: 5, y: 8, z: 5 } },
+        fill: { int: 0.8, color: '#4488ff', pos: { x: -4, y: 2, z: -3 } },
+        rim: { int: 0.6, color: '#ff8844', pos: { x: -2, y: 1, z: -5 } },
+      },
+      mat: { enabled: false, roughness: 0.4, metalness: 0.3, envInt: 1, color: '#cccccc' },
+    }
+
     this._build()
     this._bind()
     this._setupDrag()
@@ -30,6 +48,9 @@ export class ScenePanel {
         ${this._environmentSection()}
         ${this._materialSection()}
         ${this._cameraSection()}
+        <div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(0,0,0,0.06)">
+          <button class="sp-btn danger" id="sp-reset-btn" style="width:100%">Reset All to Defaults</button>
+        </div>
       </div>`
     document.body.appendChild(this.el)
 
@@ -244,6 +265,7 @@ export class ScenePanel {
     this._bindEnvironment()
     this._bindMaterials()
     this._bindCamera()
+    this._bindReset()
   }
 
   _bindToggleVisibility() {
@@ -519,6 +541,92 @@ export class ScenePanel {
     }
 
     refreshSelect()
+  }
+
+  _bindReset() {
+    const btn = this.el.querySelector('#sp-reset-btn')
+    btn.addEventListener('click', () => {
+      const d = this.defaults
+
+      this.modelLoader.clear()
+
+      this.presets.camera.position.set(d.camera.pos[0], d.camera.pos[1], d.camera.pos[2])
+      this.presets.camera.fov = d.camera.fov
+      this.presets.camera.updateProjectionMatrix()
+      this.presets.controls.target.set(d.camera.target[0], d.camera.target[1], d.camera.target[2])
+      this.presets.controls.update()
+
+      this.environment.setBackground(d.bg)
+      this.environment.setGroundVisible(d.ground.visible)
+      this.environment.setGroundColor(parseInt(d.ground.color.slice(1), 16))
+      this.environment.toggleGrid(d.grid)
+      this.environment.toggleShadows(d.shadows)
+      this.environment.setEnvPreset(d.env.preset)
+      this.environment.setEnvIntensity(d.env.intensity)
+
+      Object.entries(d.lights).forEach(([id, cfg]) => {
+        const lightId = id === 'hemi-gnd' ? 'hemi' : id
+        this.lighting.setIntensity(lightId, cfg.int)
+        if (cfg.color) {
+          if (id === 'hemi-gnd') {
+            this.lighting.lights.hemi.groundColor.setHex(parseInt(cfg.color.slice(1), 16))
+          } else {
+            this.lighting.setColor(lightId, parseInt(cfg.color.slice(1), 16))
+          }
+        }
+        if (cfg.pos) {
+          this.lighting.setPosition(lightId, cfg.pos.x, cfg.pos.y, cfg.pos.z)
+        }
+      })
+
+      this.materials.setModel(null)
+      this.materials.setEnabled(d.mat.enabled)
+      this.materials.setGlobalRoughness(d.mat.roughness)
+      this.materials.setGlobalMetalness(d.mat.metalness)
+      this.materials.setGlobalEnvIntensity(d.mat.envInt)
+      this.materials.setGlobalColor(parseInt(d.mat.color.slice(1), 16))
+
+      this.el.querySelector('#sp-bg-color').value = d.bg
+      this.el.querySelector('#sp-ground-toggle').classList.toggle('active', d.ground.visible)
+      this.el.querySelector('#sp-ground-color').value = d.ground.color
+      this.el.querySelector('#sp-grid-toggle').classList.remove('active')
+      this.el.querySelector('#sp-shadows-toggle').classList.add('active')
+      this.el.querySelector('#sp-env-preset').value = d.env.preset
+      this.el.querySelector('#sp-env-intensity').value = d.env.intensity
+      this.el.querySelector('#sp-mat-toggle').classList.remove('active')
+      this.el.querySelector('#sp-mat-roughness').value = d.mat.roughness
+      this.el.querySelector('#sp-mat-metalness').value = d.mat.metalness
+      this.el.querySelector('#sp-mat-envint').value = d.mat.envInt
+      this.el.querySelector('#sp-mat-color').value = d.mat.color
+      this.el.querySelector('#sp-mat-select').value = ''
+      this.el.querySelector('#sp-permat-controls').style.display = 'none'
+      this.el.querySelector('#sp-model-name').textContent = ''
+
+      const lightDefs = [
+        { id: 'ambient', int: 0.4, color: '#ffffff' },
+        { id: 'hemi', int: 0.8, color: '#87ceeb' },
+        { id: 'hemi-gnd', int: 0.8, color: '#362d24' },
+        { id: 'key', int: 2.5, color: '#ffffff', pos: { x: 5, y: 8, z: 5 } },
+        { id: 'fill', int: 0.8, color: '#4488ff', pos: { x: -4, y: 2, z: -3 } },
+        { id: 'rim', int: 0.6, color: '#ff8844', pos: { x: -2, y: 1, z: -5 } },
+      ]
+      lightDefs.forEach((def) => {
+        const intSlider = this.el.querySelector(`#sp-light-${def.id}-int`)
+        if (intSlider) intSlider.value = def.int
+        const colorPicker = this.el.querySelector(`#sp-light-${def.id}-color`)
+        if (colorPicker) colorPicker.value = def.color
+        if (def.pos) {
+          const px = this.el.querySelector(`#sp-light-${def.id}-posx`)
+          const py = this.el.querySelector(`#sp-light-${def.id}-posy`)
+          const pz = this.el.querySelector(`#sp-light-${def.id}-posz`)
+          if (px) px.value = def.pos.x
+          if (py) py.value = def.pos.y
+          if (pz) pz.value = def.pos.z
+        }
+      })
+
+      this._refreshMatSelect()
+    })
   }
 
   _refreshMatSelect() {
