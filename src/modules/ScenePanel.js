@@ -728,10 +728,26 @@ export class ScenePanel {
       }
 
       const json = JSON.stringify(state, null, 2)
-      navigator.clipboard.writeText(json).catch(() => {})
-      const orig = btn.textContent
-      btn.textContent = 'Copied!'
-      setTimeout(() => { btn.textContent = orig }, 2000)
+      console.log('%c[Scene Export]', 'font-weight:700;color:#e74c3c', json)
+      btn.textContent = 'Copying...'
+      navigator.clipboard.writeText(json).then(() => {
+        btn.textContent = 'Copied!'
+        setTimeout(() => { btn.textContent = 'Export Scene Config' }, 2500)
+      }).catch(() => {
+        try {
+          const ta = document.createElement('textarea')
+          ta.value = json
+          ta.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0'
+          document.body.appendChild(ta)
+          ta.select()
+          document.execCommand('copy')
+          ta.remove()
+          btn.textContent = 'Copied!'
+        } catch {
+          btn.textContent = 'See Console'
+        }
+        setTimeout(() => { btn.textContent = 'Export Scene Config' }, 2500)
+      })
     })
   }
 
