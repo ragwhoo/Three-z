@@ -358,17 +358,14 @@ export class ScenePanel {
     const addBtn = this.el.querySelector('#sp-add-light-btn')
     const typeSelect = this.el.querySelector('#sp-add-light-type')
 
-    addBtn.addEventListener('click', () => {
-      const type = typeSelect.value
-      const id = this.lighting.addLight(type)
-      if (!id) return
-
+    this._createLightUI = (id, type, config) => {
       const entry = document.createElement('div')
       entry.className = 'sp-lgt-entry'
       entry.style.cssText = 'border:1px solid rgba(0,0,0,0.06);border-radius:6px;padding:6px;margin-top:6px;'
 
       const hasPos = type === 'directional' || type === 'point' || type === 'spot'
       const hasGround = type === 'hemisphere'
+      const defaultPos = config?.pos ? config.pos : { x: 0, y: type === 'directional' ? 5 : 3, z: 0 }
 
       entry.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -377,14 +374,14 @@ export class ScenePanel {
         </div>
         <div class="sp-row">
           <span class="sp-label" style="min-width:40px">Intensity</span>
-          <input type="range" min="0" max="5" step="0.01" value="1" data-id="${id}" data-prop="int" style="width:60px" />
-          <input type="color" value="#ffffff" data-id="${id}" data-prop="color" style="width:18px;height:18px" />
+          <input type="range" min="0" max="5" step="0.01" value="${config?.intensity ?? 1}" data-id="${id}" data-prop="int" style="width:60px" />
+          <input type="color" value="${config?.color ? '#' + config.color.toString(16).padStart(6, '0') : '#ffffff'}" data-id="${id}" data-prop="color" style="width:18px;height:18px" />
         </div>
         ${hasPos ? `
         <div class="sp-row" style="padding-left:44px">
-          <input type="range" min="-10" max="10" step="0.1" value="0" data-id="${id}" data-prop="posx" style="width:26px" />
-          <input type="range" min="-10" max="10" step="0.1" value="${type === 'directional' ? 5 : 3}" data-id="${id}" data-prop="posy" style="width:26px" />
-          <input type="range" min="-10" max="10" step="0.1" value="0" data-id="${id}" data-prop="posz" style="width:26px" />
+          <input type="range" min="-10" max="10" step="0.1" value="${defaultPos.x}" data-id="${id}" data-prop="posx" style="width:26px" />
+          <input type="range" min="-10" max="10" step="0.1" value="${defaultPos.y}" data-id="${id}" data-prop="posy" style="width:26px" />
+          <input type="range" min="-10" max="10" step="0.1" value="${defaultPos.z}" data-id="${id}" data-prop="posz" style="width:26px" />
         </div>` : ''}
         ${hasGround ? `
         <div class="sp-row">
@@ -415,6 +412,20 @@ export class ScenePanel {
 
       list.appendChild(entry)
       this.lightEntries[id] = entry
+    }
+
+    addBtn.addEventListener('click', () => {
+      const id = this.lighting.addLight(typeSelect.value)
+      if (id) this._createLightUI(id, typeSelect.value, { intensity: 1, color: 0xffffff })
+    })
+
+    this.lighting.getAll().forEach(({ id, type, light }) => {
+      const config = {
+        intensity: light.intensity,
+        color: light.color.getHex(),
+        pos: light.position ? { x: light.position.x, y: light.position.y, z: light.position.z } : undefined,
+      }
+      this._createLightUI(id, type, config)
     })
   }
 
