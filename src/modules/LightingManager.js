@@ -153,6 +153,8 @@ export class LightingManager {
     sphere.position.copy(light.position)
     sphere.userData.lightId = id
     sphere.userData.isLightHelper = true
+    sphere.castShadow = false
+    sphere.receiveShadow = false
     this.scene.add(sphere)
     this.helpers[id] = sphere
     this._updateHelperColor(id)

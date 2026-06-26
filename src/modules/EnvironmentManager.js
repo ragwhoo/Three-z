@@ -63,7 +63,7 @@ export class EnvironmentManager {
     if (this.ground) this.ground.receiveShadow = enabled
     if (this.scene) {
       this.scene.traverse((child) => {
-        if (child.isMesh) {
+        if (child.isMesh && !child.userData?.isLightHelper) {
           child.castShadow = enabled
           child.receiveShadow = enabled
         }
