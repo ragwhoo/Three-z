@@ -111,6 +111,35 @@ export class LightingManager {
     return Object.entries(this.lights).map(([id, entry]) => ({ id, type: entry.type, light: entry.light }))
   }
 
+  toJSON() {
+    return Object.entries(this.lights).map(([id, entry]) => {
+      const l = entry.light
+      const data = { id, type: entry.type, intensity: l.intensity, color: l.color.getHex() }
+      if (l.position) {
+        data.position = [l.position.x, l.position.y, l.position.z]
+      }
+      if (entry.type === 'hemisphere' && l.groundColor) {
+        data.groundColor = l.groundColor.getHex()
+      }
+      return data
+    })
+  }
+
+  fromJSON(data) {
+    if (!Array.isArray(data)) return
+    data.forEach((item) => {
+      const config = {
+        intensity: item.intensity,
+        color: item.color,
+        x: item.position?.[0],
+        y: item.position?.[1],
+        z: item.position?.[2],
+        groundColor: item.groundColor,
+      }
+      this.addLight(item.type, config)
+    })
+  }
+
   getHelper(id) {
     return this.helpers[id]
   }

@@ -178,4 +178,29 @@ export class EnvironmentManager {
   setEnvPreset(preset) {
     this._generateEnvMap(preset)
   }
+
+  toJSON() {
+    return {
+      background: this.scene.background ? '#' + this.scene.background.getHexString() : '#f0f0f0',
+      groundVisible: this.ground.visible,
+      groundColor: this.ground.material.color.getHex(),
+      groundY: this.ground.position.y,
+      gridVisible: this.grid ? this.grid.visible : false,
+      shadowsEnabled: this.shadowsEnabled,
+      envPreset: 'studio',
+      envIntensity: this.envMap ? this.envMap.intensity : 1,
+    }
+  }
+
+  fromJSON(data) {
+    if (!data) return
+    if (data.background) this.setBackground(data.background)
+    if (data.groundVisible !== undefined) this.setGroundVisible(data.groundVisible)
+    if (data.groundColor !== undefined) this.setGroundColor(data.groundColor)
+    if (data.groundY !== undefined) this.setGroundHeight(data.groundY)
+    if (data.gridVisible !== undefined) this.toggleGrid(data.gridVisible)
+    if (data.shadowsEnabled !== undefined) this.toggleShadows(data.shadowsEnabled)
+    if (data.envPreset) this.setEnvPreset(data.envPreset)
+    if (data.envIntensity !== undefined) this.setEnvIntensity(data.envIntensity)
+  }
 }

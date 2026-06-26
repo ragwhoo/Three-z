@@ -117,4 +117,24 @@ export class MaterialControls {
     })
     return map
   }
+
+  toJSON() {
+    return {
+      enabled: this.enabled,
+      globalOverrides: { ...this.globalOverrides },
+      perMaterialOverrides: JSON.parse(JSON.stringify(this.perMaterialOverrides)),
+    }
+  }
+
+  fromJSON(data) {
+    if (!data) return
+    this.enabled = data.enabled ?? false
+    if (data.globalOverrides) {
+      Object.assign(this.globalOverrides, data.globalOverrides)
+    }
+    if (data.perMaterialOverrides) {
+      this.perMaterialOverrides = JSON.parse(JSON.stringify(data.perMaterialOverrides))
+    }
+    if (this.enabled) this._apply()
+  }
 }

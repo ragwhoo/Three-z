@@ -42,7 +42,13 @@ export class ScenePanel {
         ${this._materialSection()}
         ${this._cameraSection()}
         <div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(0,0,0,0.06)">
-          <button class="sp-btn danger" id="sp-reset-btn" style="width:100%">Reset All to Defaults</button>
+          <div class="sp-btn-row">
+            <button class="sp-btn" id="sp-save-btn" style="flex:1">Save Project</button>
+            <button class="sp-btn" id="sp-load-btn" style="flex:1">Load Project</button>
+          </div>
+          <div style="margin-top:4px">
+            <button class="sp-btn danger" id="sp-reset-btn" style="width:100%">Reset All to Defaults</button>
+          </div>
         </div>
       </div>`
     document.body.appendChild(this.el)
@@ -187,9 +193,12 @@ export class ScenePanel {
           <div class="sp-sep"></div>
           <div class="sp-row">
             <span class="sp-label">Per Mat</span>
-            <select id="sp-mat-select" style="width:120px">
-              <option value="">— none —</option>
-            </select>
+            <span style="display:flex;align-items:center;gap:4px">
+              <span id="sp-mat-swatch" style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,0.1);background:#ccc"></span>
+              <select id="sp-mat-select" style="width:100px">
+                <option value="">— none —</option>
+              </select>
+            </span>
           </div>
           <div id="sp-permat-controls" style="display:none">
             <div class="sp-row">
@@ -245,6 +254,9 @@ export class ScenePanel {
     this._bindMaterials()
     this._bindCamera()
     this._bindReset()
+    this._bindProjectSaveLoad()
+
+    this._autoRestore()
   }
 
   _bindToggleVisibility() {
@@ -483,6 +495,7 @@ export class ScenePanel {
     envInt.addEventListener('input', () => this.materials.setGlobalEnvIntensity(parseFloat(envInt.value)))
     color.addEventListener('input', () => this.materials.setGlobalColor(parseInt(color.value.slice(1), 16)))
 
+    const matSwatch = this.el.querySelector('#sp-mat-swatch')
     matSelect.addEventListener('change', () => {
       if (matSelect.value) {
         perMatControls.style.display = 'block'
@@ -490,10 +503,13 @@ export class ScenePanel {
         if (props) {
           perRough.value = props.roughness ?? 0.5
           perMetal.value = props.metalness ?? 0.5
-          perColor.value = '#' + (props.color ?? 0xcccccc).toString(16).padStart(6, '0')
+          const hex = '#' + (props.color ?? 0xcccccc).toString(16).padStart(6, '0')
+          perColor.value = hex
+          matSwatch.style.background = hex
         }
       } else {
         perMatControls.style.display = 'none'
+        matSwatch.style.background = '#ccc'
       }
     })
 
@@ -621,6 +637,91 @@ export class ScenePanel {
       this.el.querySelector('#sp-model-name').textContent = ''
       this._refreshMatSelect()
     })
+  }
+
+  _bindProjectSaveLoad() {
+    const saveBtn = this.el.querySelector('#sp-save-btn')
+    const loadBtn = this.el.querySelector('#sp-load-btn')
+
+    saveBtn.addEventListener('click', () => {
+      const state = {
+        lights: this.lighting.toJSON(),
+        env: this.environment.toJSON(),
+        materials: this.materials.toJSON(),
+      }
+      localStorage.setItem('model-viewer-project', JSON.stringify(state))
+      const orig = saveBtn.textContent
+      saveBtn.textContent = 'Saved!'
+      setTimeout(() => { saveBtn.textContent = orig }, 2000)
+    })
+
+    loadBtn.addEventListener('click', () => {
+      this._loadFromStorage()
+      const orig = loadBtn.textContent
+      loadBtn.textContent = 'Loaded!'
+      setTimeout(() => { loadBtn.textContent = orig }, 2000)
+    })
+  }
+
+  _loadFromStorage() {
+    const raw = localStorage.getItem('model-viewer-project')
+    if (!raw) return
+    try {
+      const state = JSON.parse(raw)
+
+      this.lighting.clearAll()
+      this.lighting.fromJSON(state.lights || [])
+
+      this.environment.fromJSON(state.env)
+
+      this.materials.fromJSON(state.materials)
+
+      this._restoreUI(state)
+    } catch (e) {
+      console.error('Failed to load project:', e)
+    }
+  }
+
+  _restoreUI(state) {
+    this.el.querySelector('#sp-lighting-list').innerHTML = ''
+    this.lightEntries = {}
+    this.lighting.getAll().forEach(({ id, type, light }) => {
+      const config = {
+        intensity: light.intensity,
+        color: light.color.getHex(),
+        pos: light.position ? { x: light.position.x, y: light.position.y, z: light.position.z } : undefined,
+      }
+      this._createLightUI(id, type, config)
+    })
+
+    const d = state?.env
+    if (d) {
+      this.el.querySelector('#sp-bg-color').value = d.background || '#f0f0f0'
+      this.el.querySelector('#sp-ground-toggle').classList.toggle('active', d.groundVisible !== false)
+      this.el.querySelector('#sp-ground-color').value = '#' + (d.groundColor ?? 0xf5f5f5).toString(16).padStart(6, '0')
+      this.el.querySelector('#sp-ground-y').value = d.groundY ?? -2
+      this.el.querySelector('#sp-grid-toggle').classList.toggle('active', !!d.gridVisible)
+      this.el.querySelector('#sp-shadows-toggle').classList.toggle('active', d.shadowsEnabled !== false)
+      this.el.querySelector('#sp-env-preset').value = d.envPreset || 'studio'
+      this.el.querySelector('#sp-env-intensity').value = d.envIntensity ?? 1
+    }
+
+    const m = state?.materials
+    if (m) {
+      this.el.querySelector('#sp-mat-toggle').classList.toggle('active', !!m.enabled)
+      if (m.globalOverrides) {
+        this.el.querySelector('#sp-mat-roughness').value = m.globalOverrides.roughness ?? 0.4
+        this.el.querySelector('#sp-mat-metalness').value = m.globalOverrides.metalness ?? 0.3
+        this.el.querySelector('#sp-mat-envint').value = m.globalOverrides.envIntensity ?? 1
+        if (m.globalOverrides.color !== null && m.globalOverrides.color !== undefined) {
+          this.el.querySelector('#sp-mat-color').value = '#' + m.globalOverrides.color.toString(16).padStart(6, '0')
+        }
+      }
+    }
+  }
+
+  _autoRestore() {
+    this._loadFromStorage()
   }
 
   _refreshMatSelect() {
