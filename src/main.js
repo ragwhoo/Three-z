@@ -9,7 +9,7 @@ let model, modelLoaded = false
 const X_OFFSET = 0
 
 const scene = new THREE.Scene()
-scene.background = new THREE.Color(0x000000)
+scene.background = new THREE.Color(0xf0f0f0)
 
 const camera = new THREE.PerspectiveCamera(
   45,
@@ -27,12 +27,26 @@ container.appendChild(renderer.domElement)
 
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.2
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
 const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x362d24, 0)
 scene.add(hemiLight)
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 0)
 directionalLight.position.set(5, 8, 5)
+directionalLight.castShadow = true
+directionalLight.shadow.mapSize.width = 2048
+directionalLight.shadow.mapSize.height = 2048
+directionalLight.shadow.camera.near = 1
+directionalLight.shadow.camera.far = 20
+directionalLight.shadow.camera.left = -8
+directionalLight.shadow.camera.right = 8
+directionalLight.shadow.camera.top = 8
+directionalLight.shadow.camera.bottom = -8
+directionalLight.shadow.bias = -0.0005
+directionalLight.shadow.normalBias = 0.02
+directionalLight.shadow.radius = 4
 scene.add(directionalLight)
 
 const fillLight = new THREE.DirectionalLight(0x4488ff, 0)
@@ -71,6 +85,14 @@ envScene.add(envLight2)
 const envMap = pmremGenerator.fromScene(envScene).texture
 scene.environment = envMap
 pmremGenerator.dispose()
+
+const groundGeom = new THREE.CircleGeometry(12, 64)
+groundGeom.rotateX(-Math.PI / 2)
+const groundMat = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.9, metalness: 0 })
+const ground = new THREE.Mesh(groundGeom, groundMat)
+ground.position.y = -2
+ground.receiveShadow = true
+scene.add(ground)
 
 const loader = new GLTFLoader()
 loader.load(
@@ -383,6 +405,21 @@ document.addEventListener('keydown', (e) => {
     scrollLockEl._hideTimer = setTimeout(() => { scrollLockEl.style.display = 'none' }, 2000)
   }
 })
+
+const groundSlider = document.createElement('div')
+groundSlider.innerHTML = '<span style="font-size:10px;color:rgba(255,255,255,0.5)">Ground</span><input type="range" min="-5" max="0" step="0.001" value="-2" style="width:120px;cursor:pointer">'
+Object.assign(groundSlider.style, {
+  position: 'fixed', bottom: '24px', right: '24px', zIndex: '99999',
+  display: 'flex', alignItems: 'center', gap: '8px',
+  fontFamily: "'Inter', system-ui, sans-serif", fontSize: '12px',
+  color: '#e0e0e0', background: 'rgba(10,10,15,0.85)',
+  backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '8px', padding: '8px 12px',
+})
+groundSlider.querySelector('input').addEventListener('input', (e) => {
+  ground.position.y = parseFloat(e.target.value)
+})
+document.body.appendChild(groundSlider)
 
 window.addEventListener('resize', () => {
   const width = window.innerWidth
