@@ -17,8 +17,8 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   100
 )
-camera.position.set(7.069251, -1.783964, -4.048179)
-camera.rotation.set(2.754620, 1.234719, -2.774326)
+camera.position.set(-7.728778, -0.750973, -1.395258)
+camera.rotation.set(-1.712438, -1.561676, -1.712444)
 
 const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
 renderer.setSize(window.innerWidth, window.innerHeight)
@@ -51,7 +51,8 @@ setTimeout(() => {
 }, 1500)
 
 const controls = new OrbitControls(camera, renderer.domElement)
-controls.target.set(0.212333, -0.880000, -1.829976)
+controls.target.set(-0.083563, -0.820000, -1.385415)
+controls.update()
 controls.enableDamping = false
 controls.minDistance = 0
 controls.maxDistance = Infinity
@@ -196,6 +197,41 @@ const sectionTransitions = [
   },
 ]
 
+const _p1 = new THREE.Vector3()
+const _p2 = new THREE.Vector3()
+const _mid = new THREE.Vector3()
+const _off = new THREE.Vector3()
+const _t1 = new THREE.Vector3()
+
+function animateCameraTo(toPos, toTarget) {
+  const fromPos = _p1.copy(camera.position)
+  const fromTarget = _p2.copy(controls.target)
+
+  _mid.addVectors(fromPos, toPos).multiplyScalar(0.5)
+  _off.copy(_mid)
+  const d = _off.length()
+  if (d > 0.01) {
+    _off.normalize().multiplyScalar(d * 0.6)
+  }
+  _off.y += Math.max(4, d * 0.4)
+  const control = _mid.clone().add(_off)
+
+  const curve = new THREE.CatmullRomCurve3([fromPos, control, toPos])
+
+  const state = { t: 0 }
+  gsap.to(state, {
+    t: 1,
+    duration: 1.2,
+    ease: 'power2.out',
+    overwrite: 'auto',
+    onUpdate: () => {
+      curve.getPoint(state.t, camera.position)
+      controls.target.lerpVectors(fromTarget, toTarget, state.t)
+      controls.update()
+    },
+  })
+}
+
 function moveModel() {
   if (!modelLoaded || !model) return
 
@@ -236,23 +272,10 @@ function moveModel() {
   })
 
   if (target.camera) {
-    gsap.to(camera.position, {
-      x: target.camera.position.x,
-      y: target.camera.position.y,
-      z: target.camera.position.z,
-      duration: 1.2,
-      ease: 'power2.out',
-      overwrite: 'auto',
-    })
-    gsap.to(controls.target, {
-      x: target.camera.target.x,
-      y: target.camera.target.y,
-      z: target.camera.target.z,
-      duration: 1.2,
-      ease: 'power2.out',
-      overwrite: 'auto',
-      onUpdate: () => controls.update(),
-    })
+    animateCameraTo(
+      new THREE.Vector3(target.camera.position.x, target.camera.position.y, target.camera.position.z),
+      new THREE.Vector3(target.camera.target.x, target.camera.target.y, target.camera.target.z),
+    )
   }
 }
 
