@@ -47,6 +47,9 @@ export class ScenePanel {
             <button class="sp-btn" id="sp-load-btn" style="flex:1">Load Project</button>
           </div>
           <div style="margin-top:4px">
+            <button class="sp-btn primary" id="sp-export-scene" style="width:100%">Export Scene Config</button>
+          </div>
+          <div style="margin-top:4px">
             <button class="sp-btn danger" id="sp-reset-btn" style="width:100%">Reset All to Defaults</button>
           </div>
         </div>
@@ -253,6 +256,7 @@ export class ScenePanel {
     this._bindCamera()
     this._bindReset()
     this._bindProjectSaveLoad()
+    this._bindExportScene()
 
     this._autoRestore()
   }
@@ -699,6 +703,35 @@ export class ScenePanel {
       const orig = loadBtn.textContent
       loadBtn.textContent = 'Loaded!'
       setTimeout(() => { loadBtn.textContent = orig }, 2000)
+    })
+  }
+
+  _bindExportScene() {
+    const btn = this.el.querySelector('#sp-export-scene')
+    btn.addEventListener('click', () => {
+      let presets = {}
+      try { presets = JSON.parse(localStorage.getItem('model-viewer-presets') || '{}') } catch {}
+
+      const state = {
+        lights: this.lighting.toJSON(),
+        environment: this.environment.toJSON(),
+        materials: this.materials.toJSON(),
+        camera: {
+          current: {
+            position: [this.presets.camera.position.x, this.presets.camera.position.y, this.presets.camera.position.z],
+            target: [this.presets.controls.target.x, this.presets.controls.target.y, this.presets.controls.target.z],
+            fov: this.presets.camera.fov,
+          },
+          presets,
+        },
+        model: this.modelLoader.getTransform(),
+      }
+
+      const json = JSON.stringify(state, null, 2)
+      navigator.clipboard.writeText(json).catch(() => {})
+      const orig = btn.textContent
+      btn.textContent = 'Copied!'
+      setTimeout(() => { btn.textContent = orig }, 2000)
     })
   }
 

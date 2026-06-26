@@ -93,6 +93,15 @@ export class ModelLoader {
     }
   }
 
+  getTransform() {
+    if (!this.model) return null
+    return {
+      scale: [this.model.scale.x, this.model.scale.y, this.model.scale.z],
+      position: [this.model.position.x, this.model.position.y, this.model.position.z],
+      rotation: [this.model.rotation.x, this.model.rotation.y, this.model.rotation.z],
+    }
+  }
+
   getMaterials() {
     const mats = []
     if (!this.model) return mats
