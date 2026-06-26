@@ -201,20 +201,44 @@ const _p1 = new THREE.Vector3()
 const _p2 = new THREE.Vector3()
 const _mid = new THREE.Vector3()
 const _off = new THREE.Vector3()
-const _t1 = new THREE.Vector3()
+const _dir = new THREE.Vector3()
+const _side = new THREE.Vector3()
 
 function animateCameraTo(toPos, toTarget) {
   const fromPos = _p1.copy(camera.position)
   const fromTarget = _p2.copy(controls.target)
 
   _mid.addVectors(fromPos, toPos).multiplyScalar(0.5)
+  const distToOrigin = _mid.length()
+  const nearModel = Math.max(0, 4 - distToOrigin)
+
+  _dir.copy(toPos).sub(fromPos)
+  _dir.y = 0
+  _dir.normalize()
+
+  _side.crossVectors(_dir, new THREE.Vector3(0, 1, 0)).normalize()
+
   _off.copy(_mid)
-  const d = _off.length()
-  if (d > 0.01) {
-    _off.normalize().multiplyScalar(d * 0.6)
-  }
-  _off.y += Math.max(4, d * 0.4)
-  const control = _mid.clone().add(_off)
+  _off.y = 0
+  const hDist = _off.length()
+  if (hDist > 0.01) _off.normalize()
+  else _off.set(1, 0, 0)
+
+  const sideWeight = 0.5 + nearModel * 0.1
+  const awayWeight = 1 - sideWeight
+  const horizDir = new THREE.Vector3()
+    .addScaledVector(_side, sideWeight)
+    .addScaledVector(_off, awayWeight)
+    .normalize()
+
+  const avgY = (fromPos.y + toPos.y) / 2
+  const upAmount = Math.max(0.5, 3 - avgY * 0.3)
+  const pushAmount = 1.5 + nearModel * 0.5
+
+  const control = _mid.clone()
+  control.x += horizDir.x * pushAmount
+  control.z += horizDir.z * pushAmount
+  control.y += upAmount * pushAmount
 
   const curve = new THREE.CatmullRomCurve3([fromPos, control, toPos])
 
@@ -320,15 +344,42 @@ toggleBtn.addEventListener('click', () => {
 })
 document.body.appendChild(animToggleEl)
 
+let scrollLocked = true
+const scrollLockEl = document.createElement('div')
+scrollLockEl.id = 'scroll-lock-indicator'
+scrollLockEl.textContent =  'Scroll: OFF (6 to toggle)'
+Object.assign(scrollLockEl.style, {
+  position: 'fixed', bottom: '60px', left: '50%', transform: 'translateX(-50%)',
+  zIndex: '99999', display: 'none',
+  fontFamily: "'Inter', system-ui, sans-serif", fontSize: '12px',
+  color: '#e0e0e0', background: 'rgba(10,10,15,0.9)',
+  backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '8px', padding: '8px 16px', whiteSpace: 'nowrap',
+})
+document.body.appendChild(scrollLockEl)
+
+let scrollLockVisible = false
+
 document.addEventListener('keydown', (e) => {
   if (e.key === '5' && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return
     animToggleVisible = !animToggleVisible
     animToggleEl.style.display = animToggleVisible ? 'flex' : 'none'
   }
+  if (e.key === '6' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return
+    scrollLocked = !scrollLocked
+    scrollLockVisible = true
+    scrollLockEl.style.display = 'flex'
+    scrollLockEl.textContent = scrollLocked ? 'Scroll: OFF (6 to toggle)' : 'Scroll: ON (6 to toggle)'
+    clearTimeout(scrollLockEl._hideTimer)
+    scrollLockEl._hideTimer = setTimeout(() => { scrollLockEl.style.display = 'none' }, 2000)
+  }
 })
 
-window.addEventListener('wheel', (e) => e.preventDefault(), { passive: false })
+window.addEventListener('wheel', (e) => {
+  if (scrollLocked) e.preventDefault()
+}, { passive: false })
 
 window.addEventListener('resize', () => {
   const width = window.innerWidth
