@@ -427,6 +427,17 @@ export class ScenePanel {
       }
       this._createLightUI(id, type, config)
     })
+
+    this.lighting.onPositionChange = (id, x, y, z) => {
+      const entry = this.lightEntries[id]
+      if (!entry) return
+      const px = entry.querySelector('[data-prop="posx"]')
+      const py = entry.querySelector('[data-prop="posy"]')
+      const pz = entry.querySelector('[data-prop="posz"]')
+      if (px) px.value = x
+      if (py) py.value = y
+      if (pz) pz.value = z
+    }
   }
 
   _bindEnvironment() {

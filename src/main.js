@@ -31,7 +31,7 @@ controls.update()
 
 const modelLoader = new ModelLoader(scene, renderer)
 const environment = new EnvironmentManager(scene, renderer)
-const lighting = new LightingManager(scene)
+const lighting = new LightingManager(scene, camera, renderer, controls)
 lighting.addLight('ambient', { color: 0xffffff, intensity: 0.5 })
 lighting.addLight('directional', { color: 0xffffff, intensity: 2, x: 5, y: 8, z: 5 })
 const materials = new MaterialControls()

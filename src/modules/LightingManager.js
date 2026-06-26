@@ -3,9 +3,22 @@ import * as THREE from 'three'
 let _counter = 0
 
 export class LightingManager {
-  constructor(scene) {
+  constructor(scene, camera, renderer, controls) {
     this.scene = scene
+    this.camera = camera
+    this.renderer = renderer
+    this.controls = controls
     this.lights = {}
+    this.helpers = {}
+    this._dragging = null
+    this._dragPlane = new THREE.Plane()
+    this._dragOffset = new THREE.Vector3()
+    this._dragIntersect = new THREE.Vector3()
+    this._raycaster = new THREE.Raycaster()
+    this._mouse = new THREE.Vector2()
+    this.onPositionChange = null
+
+    this._setupDrag()
   }
 
   addLight(type, config = {}) {
@@ -38,6 +51,7 @@ export class LightingManager {
     light.name = id
     this.scene.add(light)
     this.lights[id] = { type, light }
+    this._createHelper(id, type, light)
     return id
   }
 
@@ -47,19 +61,29 @@ export class LightingManager {
     this.scene.remove(entry.light)
     if (entry.light.dispose) entry.light.dispose()
     delete this.lights[id]
+    this._removeHelper(id)
   }
 
   updateIntensity(id, value) {
-    if (this.lights[id]) this.lights[id].light.intensity = value
+    if (this.lights[id]) {
+      this.lights[id].light.intensity = value
+      this._updateHelperScale(id)
+    }
   }
 
   updateColor(id, hex) {
-    if (this.lights[id]) this.lights[id].light.color.setHex(hex)
+    if (this.lights[id]) {
+      this.lights[id].light.color.setHex(hex)
+      this._updateHelperColor(id)
+    }
   }
 
   updatePosition(id, x, y, z) {
     const entry = this.lights[id]
-    if (entry && entry.light.position) entry.light.position.set(x, y, z)
+    if (entry && entry.light.position) {
+      entry.light.position.set(x, y, z)
+      this._updateHelperPos(id)
+    }
   }
 
   updateGroundColor(hex) {
@@ -73,5 +97,117 @@ export class LightingManager {
 
   getAll() {
     return Object.entries(this.lights).map(([id, entry]) => ({ id, type: entry.type, light: entry.light }))
+  }
+
+  getHelper(id) {
+    return this.helpers[id]
+  }
+
+  _createHelper(id, type, light) {
+    if (type === 'ambient' || type === 'hemisphere') return
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.15, 12, 12),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.7 })
+    )
+    sphere.position.copy(light.position)
+    sphere.userData.lightId = id
+    sphere.userData.isLightHelper = true
+    this.scene.add(sphere)
+    this.helpers[id] = sphere
+    this._updateHelperColor(id)
+    this._updateHelperScale(id)
+  }
+
+  _updateHelperColor(id) {
+    const helper = this.helpers[id]
+    const entry = this.lights[id]
+    if (helper && entry) {
+      helper.material.color.copy(entry.light.color)
+    }
+  }
+
+  _updateHelperScale(id) {
+    const helper = this.helpers[id]
+    const entry = this.lights[id]
+    if (helper && entry) {
+      const s = 0.12 + entry.light.intensity * 0.06
+      helper.scale.setScalar(s / 0.15)
+    }
+  }
+
+  _updateHelperPos(id) {
+    const helper = this.helpers[id]
+    const entry = this.lights[id]
+    if (helper && entry) {
+      helper.position.copy(entry.light.position)
+    }
+  }
+
+  _removeHelper(id) {
+    const h = this.helpers[id]
+    if (h) {
+      this.scene.remove(h)
+      if (h.material) h.material.dispose()
+      if (h.geometry) h.geometry.dispose()
+      delete this.helpers[id]
+    }
+  }
+
+  setHelpersVisible(visible) {
+    Object.values(this.helpers).forEach((h) => (h.visible = visible))
+  }
+
+  _setupDrag() {
+    const el = this.renderer.domElement
+
+    el.addEventListener('pointerdown', (e) => {
+      const rect = el.getBoundingClientRect()
+      this._mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+      this._mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+
+      this._raycaster.setFromCamera(this._mouse, this.camera)
+      const targets = Object.values(this.helpers)
+      const hits = this._raycaster.intersectObjects(targets)
+
+      if (hits.length > 0) {
+        const obj = hits[0].object
+        this._dragging = obj.userData.lightId
+        if (this.controls) this.controls.enabled = false
+
+        this._dragPlane.setFromNormalAndCoplanarPoint(
+          this.camera.getWorldDirection(new THREE.Vector3()).negate(),
+          obj.position
+        )
+        const hit = new THREE.Vector3()
+        if (this._raycaster.ray.intersectPlane(this._dragPlane, hit)) {
+          this._dragOffset.copy(hit).sub(obj.position)
+        }
+        el.style.cursor = 'grabbing'
+        e.preventDefault()
+      }
+    })
+
+    el.addEventListener('pointermove', (e) => {
+      if (!this._dragging) return
+      const rect = el.getBoundingClientRect()
+      this._mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+      this._mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+
+      this._raycaster.setFromCamera(this._mouse, this.camera)
+      this._raycaster.ray.intersectPlane(this._dragPlane, this._dragIntersect)
+      if (!this._dragIntersect) return
+
+      const pos = this._dragIntersect.clone().sub(this._dragOffset)
+      this.updatePosition(this._dragging, pos.x, pos.y, pos.z)
+      if (this.onPositionChange) this.onPositionChange(this._dragging, pos.x, pos.y, pos.z)
+    })
+
+    el.addEventListener('pointerup', () => {
+      if (this._dragging) {
+        if (this.controls) this.controls.enabled = true
+        this._dragging = null
+        this.renderer.domElement.style.cursor = ''
+      }
+    })
   }
 }
