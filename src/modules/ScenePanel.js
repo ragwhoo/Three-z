@@ -1,10 +1,11 @@
 export class ScenePanel {
-  constructor({ modelLoader, environment, lighting, materials, presets }) {
+  constructor({ modelLoader, environment, lighting, materials, presets, postProcessing }) {
     this.modelLoader = modelLoader
     this.environment = environment
     this.lighting = lighting
     this.materials = materials
     this.presets = presets
+    this.postProcessing = postProcessing
 
     this.visible = true
     this.collapsed = false
@@ -18,6 +19,7 @@ export class ScenePanel {
       shadows: true,
       env: { preset: 'studio', intensity: 1 },
       mat: { enabled: false, roughness: 0.4, metalness: 0.3, envInt: 1, color: '#cccccc' },
+      post: { enabled: false, bloom: { enabled: false, strength: 0.5, radius: 0.5, threshold: 0.2 }, color: { enabled: false, brightness: 0, contrast: 1, saturation: 1, hue: 0 }, vignette: { enabled: false, offset: 0.5, darkness: 0.5 }, grain: { enabled: false, intensity: 0.1, size: 1.0 }, sao: { enabled: false, bias: 0.5, intensity: 0.18, scale: 1, kernelRadius: 100, blur: true, blurRadius: 8 }, ssr: { enabled: false, opacity: 0.5, maxDistance: 180, thickness: 0.018 } },
     }
     this.lightEntries = {}
 
@@ -40,6 +42,7 @@ export class ScenePanel {
         ${this._lightingSection()}
         ${this._environmentSection()}
         ${this._materialSection()}
+        ${this._postProcessingSection()}
         ${this._cameraSection()}
         <div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(0,0,0,0.06)">
           <div class="sp-btn-row">
@@ -219,6 +222,126 @@ export class ScenePanel {
       </div>`
   }
 
+  _postProcessingSection() {
+    return `
+      <div class="sp-section" data-section="post">
+        <div class="sp-section-header">
+          Post-Processing
+          <span class="arrow open">▸</span>
+        </div>
+        <div class="sp-section-content" id="sp-sec-post">
+          <div class="sp-row">
+            <span class="sp-label">Enabled</span>
+            <div class="sp-toggle" id="sp-pp-toggle"></div>
+          </div>
+          <div class="sp-sep"></div>
+          <div class="sp-row">
+            <span class="sp-label" style="font-weight:600">Bloom</span>
+            <div class="sp-toggle" id="sp-bloom-toggle"></div>
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Strength</span>
+            <input type="range" min="0" max="3" step="0.01" value="0.5" id="sp-bloom-strength" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Radius</span>
+            <input type="range" min="0" max="1" step="0.01" value="0.5" id="sp-bloom-radius" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Threshold</span>
+            <input type="range" min="0" max="1" step="0.01" value="0.2" id="sp-bloom-threshold" style="width:80px" />
+          </div>
+          <div class="sp-sep"></div>
+          <div class="sp-row">
+            <span class="sp-label" style="font-weight:600">Color</span>
+            <div class="sp-toggle" id="sp-color-toggle"></div>
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Brightness</span>
+            <input type="range" min="-1" max="1" step="0.01" value="0" id="sp-color-brightness" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Contrast</span>
+            <input type="range" min="0" max="3" step="0.01" value="1" id="sp-color-contrast" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Saturation</span>
+            <input type="range" min="0" max="3" step="0.01" value="1" id="sp-color-saturation" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Hue</span>
+            <input type="range" min="0" max="1" step="0.01" value="0" id="sp-color-hue" style="width:80px" />
+          </div>
+          <div class="sp-sep"></div>
+          <div class="sp-row">
+            <span class="sp-label" style="font-weight:600">Vignette</span>
+            <div class="sp-toggle" id="sp-vignette-toggle"></div>
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Offset</span>
+            <input type="range" min="0" max="2" step="0.01" value="0.5" id="sp-vignette-offset" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Darkness</span>
+            <input type="range" min="0" max="1" step="0.01" value="0.5" id="sp-vignette-darkness" style="width:80px" />
+          </div>
+          <div class="sp-sep"></div>
+          <div class="sp-row">
+            <span class="sp-label" style="font-weight:600">Grain</span>
+            <div class="sp-toggle" id="sp-grain-toggle"></div>
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Intensity</span>
+            <input type="range" min="0" max="1" step="0.01" value="0.1" id="sp-grain-intensity" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Size</span>
+            <input type="range" min="0.1" max="5" step="0.01" value="1" id="sp-grain-size" style="width:80px" />
+          </div>
+          <div class="sp-sep"></div>
+          <div class="sp-row">
+            <span class="sp-label" style="font-weight:600">SAO</span>
+            <div class="sp-toggle" id="sp-sao-toggle"></div>
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Intensity</span>
+            <input type="range" min="0" max="2" step="0.01" value="0.18" id="sp-sao-intensity" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Bias</span>
+            <input type="range" min="0" max="2" step="0.01" value="0.5" id="sp-sao-bias" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Scale</span>
+            <input type="range" min="0" max="5" step="0.01" value="1" id="sp-sao-scale" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Kernel</span>
+            <input type="range" min="0" max="300" step="1" value="100" id="sp-sao-kernel" style="width:80px" />
+          </div>
+          <div class="sp-sep"></div>
+          <div class="sp-row">
+            <span class="sp-label" style="font-weight:600">SSR</span>
+            <div class="sp-toggle" id="sp-ssr-toggle"></div>
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Opacity</span>
+            <input type="range" min="0" max="1" step="0.01" value="0.5" id="sp-ssr-opacity" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Distance</span>
+            <input type="range" min="0" max="500" step="1" value="180" id="sp-ssr-maxdist" style="width:80px" />
+          </div>
+          <div class="sp-row">
+            <span class="sp-label">Thickness</span>
+            <input type="range" min="0" max="0.1" step="0.001" value="0.018" id="sp-ssr-thickness" style="width:80px" />
+          </div>
+          <div class="sp-sep"></div>
+          <button class="sp-btn primary" id="sp-export-image-btn" style="width:100%">Export as PNG</button>
+        </div>
+      </div>`
+  }
+
   _cameraSection() {
     return `
       <div class="sp-section" data-section="cam">
@@ -254,6 +377,7 @@ export class ScenePanel {
     this._bindEnvironment()
     this._bindMaterials()
     this._bindCamera()
+    this._bindPostProcessing()
     this._bindReset()
     this._bindProjectSaveLoad()
     this._bindExportScene()
@@ -568,6 +692,97 @@ export class ScenePanel {
     })
   }
 
+  _bindPostProcessing() {
+    if (!this.postProcessing) return
+
+    const ppToggle = this.el.querySelector('#sp-pp-toggle')
+    const bloomToggle = this.el.querySelector('#sp-bloom-toggle')
+    const bloomStrength = this.el.querySelector('#sp-bloom-strength')
+    const bloomRadius = this.el.querySelector('#sp-bloom-radius')
+    const bloomThreshold = this.el.querySelector('#sp-bloom-threshold')
+    const colorToggle = this.el.querySelector('#sp-color-toggle')
+    const colorBrightness = this.el.querySelector('#sp-color-brightness')
+    const colorContrast = this.el.querySelector('#sp-color-contrast')
+    const colorSaturation = this.el.querySelector('#sp-color-saturation')
+    const colorHue = this.el.querySelector('#sp-color-hue')
+    const vignetteToggle = this.el.querySelector('#sp-vignette-toggle')
+    const vignetteOffset = this.el.querySelector('#sp-vignette-offset')
+    const vignetteDarkness = this.el.querySelector('#sp-vignette-darkness')
+    const grainToggle = this.el.querySelector('#sp-grain-toggle')
+    const grainIntensity = this.el.querySelector('#sp-grain-intensity')
+    const grainSize = this.el.querySelector('#sp-grain-size')
+    const saoToggle = this.el.querySelector('#sp-sao-toggle')
+    const saoIntensity = this.el.querySelector('#sp-sao-intensity')
+    const saoBias = this.el.querySelector('#sp-sao-bias')
+    const saoScale = this.el.querySelector('#sp-sao-scale')
+    const saoKernel = this.el.querySelector('#sp-sao-kernel')
+    const ssrToggle = this.el.querySelector('#sp-ssr-toggle')
+    const ssrOpacity = this.el.querySelector('#sp-ssr-opacity')
+    const ssrMaxDist = this.el.querySelector('#sp-ssr-maxdist')
+    const ssrThickness = this.el.querySelector('#sp-ssr-thickness')
+    const exportBtn = this.el.querySelector('#sp-export-image-btn')
+
+    ppToggle.addEventListener('click', () => {
+      ppToggle.classList.toggle('active')
+      this.postProcessing.setEnabled(ppToggle.classList.contains('active'))
+    })
+
+    bloomToggle.addEventListener('click', () => {
+      bloomToggle.classList.toggle('active')
+      this.postProcessing.setBloomEnabled(bloomToggle.classList.contains('active'))
+    })
+    bloomStrength.addEventListener('input', () => this.postProcessing.setBloomStrength(parseFloat(bloomStrength.value)))
+    bloomRadius.addEventListener('input', () => this.postProcessing.setBloomRadius(parseFloat(bloomRadius.value)))
+    bloomThreshold.addEventListener('input', () => this.postProcessing.setBloomThreshold(parseFloat(bloomThreshold.value)))
+
+    colorToggle.addEventListener('click', () => {
+      colorToggle.classList.toggle('active')
+      this.postProcessing.setColorEnabled(colorToggle.classList.contains('active'))
+    })
+    colorBrightness.addEventListener('input', () => this.postProcessing.setBrightness(parseFloat(colorBrightness.value)))
+    colorContrast.addEventListener('input', () => this.postProcessing.setContrast(parseFloat(colorContrast.value)))
+    colorSaturation.addEventListener('input', () => this.postProcessing.setSaturation(parseFloat(colorSaturation.value)))
+    colorHue.addEventListener('input', () => this.postProcessing.setHue(parseFloat(colorHue.value)))
+
+    vignetteToggle.addEventListener('click', () => {
+      vignetteToggle.classList.toggle('active')
+      this.postProcessing.setVignetteEnabled(vignetteToggle.classList.contains('active'))
+    })
+    vignetteOffset.addEventListener('input', () => this.postProcessing.setVignetteOffset(parseFloat(vignetteOffset.value)))
+    vignetteDarkness.addEventListener('input', () => this.postProcessing.setVignetteDarkness(parseFloat(vignetteDarkness.value)))
+
+    grainToggle.addEventListener('click', () => {
+      grainToggle.classList.toggle('active')
+      this.postProcessing.setGrainEnabled(grainToggle.classList.contains('active'))
+    })
+    grainIntensity.addEventListener('input', () => this.postProcessing.setGrainIntensity(parseFloat(grainIntensity.value)))
+    grainSize.addEventListener('input', () => this.postProcessing.setGrainSize(parseFloat(grainSize.value)))
+
+    saoToggle.addEventListener('click', () => {
+      saoToggle.classList.toggle('active')
+      this.postProcessing.setSAOEnabled(saoToggle.classList.contains('active'))
+    })
+    saoIntensity.addEventListener('input', () => this.postProcessing.setSAOIntensity(parseFloat(saoIntensity.value)))
+    saoBias.addEventListener('input', () => this.postProcessing.setSAOBias(parseFloat(saoBias.value)))
+    saoScale.addEventListener('input', () => this.postProcessing.setSAOScale(parseFloat(saoScale.value)))
+    saoKernel.addEventListener('input', () => this.postProcessing.setSAOKernelRadius(parseFloat(saoKernel.value)))
+
+    ssrToggle.addEventListener('click', () => {
+      ssrToggle.classList.toggle('active')
+      this.postProcessing.setSSREnabled(ssrToggle.classList.contains('active'))
+    })
+    ssrOpacity.addEventListener('input', () => this.postProcessing.setSSROpacity(parseFloat(ssrOpacity.value)))
+    ssrMaxDist.addEventListener('input', () => this.postProcessing.setSSRMaxDistance(parseFloat(ssrMaxDist.value)))
+    ssrThickness.addEventListener('input', () => this.postProcessing.setSSRThickness(parseFloat(ssrThickness.value)))
+
+    exportBtn.addEventListener('click', () => {
+      this.postProcessing.exportImage()
+      const orig = exportBtn.textContent
+      exportBtn.textContent = 'Exported!'
+      setTimeout(() => { exportBtn.textContent = orig }, 2000)
+    })
+  }
+
   _bindCamera() {
     const nameInput = this.el.querySelector('#sp-preset-name')
     const saveBtn = this.el.querySelector('#sp-save-preset')
@@ -656,6 +871,35 @@ export class ScenePanel {
       this.el.querySelector('#sp-lighting-list').innerHTML = ''
       this.lightEntries = {}
 
+      if (this.postProcessing) {
+        const dp = d.post
+        this.postProcessing.setEnabled(dp.enabled)
+        this.postProcessing.setBloomEnabled(dp.bloom.enabled)
+        this.postProcessing.setBloomStrength(dp.bloom.strength)
+        this.postProcessing.setBloomRadius(dp.bloom.radius)
+        this.postProcessing.setBloomThreshold(dp.bloom.threshold)
+        this.postProcessing.setColorEnabled(dp.color.enabled)
+        this.postProcessing.setBrightness(dp.color.brightness)
+        this.postProcessing.setContrast(dp.color.contrast)
+        this.postProcessing.setSaturation(dp.color.saturation)
+        this.postProcessing.setHue(dp.color.hue)
+        this.postProcessing.setVignetteEnabled(dp.vignette.enabled)
+        this.postProcessing.setVignetteOffset(dp.vignette.offset)
+        this.postProcessing.setVignetteDarkness(dp.vignette.darkness)
+        this.postProcessing.setGrainEnabled(dp.grain.enabled)
+        this.postProcessing.setGrainIntensity(dp.grain.intensity)
+        this.postProcessing.setGrainSize(dp.grain.size)
+        this.postProcessing.setSAOEnabled(dp.sao.enabled)
+        this.postProcessing.setSAOIntensity(dp.sao.intensity)
+        this.postProcessing.setSAOBias(dp.sao.bias)
+        this.postProcessing.setSAOScale(dp.sao.scale)
+        this.postProcessing.setSAOKernelRadius(dp.sao.kernelRadius)
+        this.postProcessing.setSSREnabled(dp.ssr.enabled)
+        this.postProcessing.setSSROpacity(dp.ssr.opacity)
+        this.postProcessing.setSSRMaxDistance(dp.ssr.maxDistance)
+        this.postProcessing.setSSRThickness(dp.ssr.thickness)
+      }
+
       this.materials.setModel(null)
       this.materials.setEnabled(d.mat.enabled)
       this.materials.setGlobalRoughness(d.mat.roughness)
@@ -677,6 +921,32 @@ export class ScenePanel {
       this.el.querySelector('#sp-mat-envint').value = d.mat.envInt
       this.el.querySelector('#sp-mat-color').value = d.mat.color
       this.el.querySelector('#sp-permat-controls').style.display = 'none'
+      this.el.querySelector('#sp-pp-toggle').classList.remove('active')
+      this.el.querySelector('#sp-bloom-toggle').classList.remove('active')
+      this.el.querySelector('#sp-bloom-strength').value = d.post.bloom.strength
+      this.el.querySelector('#sp-bloom-radius').value = d.post.bloom.radius
+      this.el.querySelector('#sp-bloom-threshold').value = d.post.bloom.threshold
+      this.el.querySelector('#sp-color-toggle').classList.remove('active')
+      this.el.querySelector('#sp-color-brightness').value = d.post.color.brightness
+      this.el.querySelector('#sp-color-contrast').value = d.post.color.contrast
+      this.el.querySelector('#sp-color-saturation').value = d.post.color.saturation
+      this.el.querySelector('#sp-color-hue').value = d.post.color.hue
+      this.el.querySelector('#sp-vignette-toggle').classList.remove('active')
+      this.el.querySelector('#sp-vignette-offset').value = d.post.vignette.offset
+      this.el.querySelector('#sp-vignette-darkness').value = d.post.vignette.darkness
+      this.el.querySelector('#sp-grain-toggle').classList.remove('active')
+      this.el.querySelector('#sp-grain-intensity').value = d.post.grain.intensity
+      this.el.querySelector('#sp-grain-size').value = d.post.grain.size
+      this.el.querySelector('#sp-sao-toggle').classList.remove('active')
+      this.el.querySelector('#sp-sao-intensity').value = d.post.sao.intensity
+      this.el.querySelector('#sp-sao-bias').value = d.post.sao.bias
+      this.el.querySelector('#sp-sao-scale').value = d.post.sao.scale
+      this.el.querySelector('#sp-sao-kernel').value = d.post.sao.kernelRadius
+      this.el.querySelector('#sp-ssr-toggle').classList.remove('active')
+      this.el.querySelector('#sp-ssr-opacity').value = d.post.ssr.opacity
+      this.el.querySelector('#sp-ssr-maxdist').value = d.post.ssr.maxDistance
+      this.el.querySelector('#sp-ssr-thickness').value = d.post.ssr.thickness
+
       this.el.querySelector('#sp-model-name').textContent = ''
       this._refreshMatSelect()
     })
@@ -691,6 +961,7 @@ export class ScenePanel {
         lights: this.lighting.toJSON(),
         env: this.environment.toJSON(),
         materials: this.materials.toJSON(),
+        postProcessing: this.postProcessing ? this.postProcessing.toJSON() : null,
       }
       localStorage.setItem('model-viewer-project', JSON.stringify(state))
       const orig = saveBtn.textContent
@@ -716,6 +987,7 @@ export class ScenePanel {
         lights: this.lighting.toJSON(),
         environment: this.environment.toJSON(),
         materials: this.materials.toJSON(),
+        postProcessing: this.postProcessing ? this.postProcessing.toJSON() : null,
         camera: {
           current: {
             position: [this.presets.camera.position.x, this.presets.camera.position.y, this.presets.camera.position.z],
@@ -764,6 +1036,10 @@ export class ScenePanel {
 
       this.materials.fromJSON(state.materials)
 
+      if (this.postProcessing && state.postProcessing) {
+        this.postProcessing.fromJSON(state.postProcessing)
+      }
+
       this._restoreUI(state)
     } catch (e) {
       console.error('Failed to load project:', e)
@@ -794,6 +1070,47 @@ export class ScenePanel {
       this.el.querySelector('#sp-shadows-toggle').classList.toggle('active', d.shadowsEnabled !== false)
       this.el.querySelector('#sp-env-preset').value = d.envPreset || 'studio'
       this.el.querySelector('#sp-env-intensity').value = d.envIntensity ?? 1
+    }
+
+    const pp = state?.postProcessing
+    if (pp && this.postProcessing) {
+      this.el.querySelector('#sp-pp-toggle').classList.toggle('active', !!pp.enabled)
+      this.el.querySelector('#sp-bloom-toggle').classList.toggle('active', !!pp.bloom?.enabled)
+      if (pp.bloom) {
+        this.el.querySelector('#sp-bloom-strength').value = pp.bloom.strength ?? 0.5
+        this.el.querySelector('#sp-bloom-radius').value = pp.bloom.radius ?? 0.5
+        this.el.querySelector('#sp-bloom-threshold').value = pp.bloom.threshold ?? 0.2
+      }
+      this.el.querySelector('#sp-color-toggle').classList.toggle('active', !!pp.color?.enabled)
+      if (pp.color) {
+        this.el.querySelector('#sp-color-brightness').value = pp.color.brightness ?? 0
+        this.el.querySelector('#sp-color-contrast').value = pp.color.contrast ?? 1
+        this.el.querySelector('#sp-color-saturation').value = pp.color.saturation ?? 1
+        this.el.querySelector('#sp-color-hue').value = pp.color.hue ?? 0
+      }
+      this.el.querySelector('#sp-vignette-toggle').classList.toggle('active', !!pp.vignette?.enabled)
+      if (pp.vignette) {
+        this.el.querySelector('#sp-vignette-offset').value = pp.vignette.offset ?? 0.5
+        this.el.querySelector('#sp-vignette-darkness').value = pp.vignette.darkness ?? 0.5
+      }
+      this.el.querySelector('#sp-grain-toggle').classList.toggle('active', !!pp.grain?.enabled)
+      if (pp.grain) {
+        this.el.querySelector('#sp-grain-intensity').value = pp.grain.intensity ?? 0.1
+        this.el.querySelector('#sp-grain-size').value = pp.grain.size ?? 1
+      }
+      this.el.querySelector('#sp-sao-toggle').classList.toggle('active', !!pp.sao?.enabled)
+      if (pp.sao) {
+        this.el.querySelector('#sp-sao-intensity').value = pp.sao.intensity ?? 0.18
+        this.el.querySelector('#sp-sao-bias').value = pp.sao.bias ?? 0.5
+        this.el.querySelector('#sp-sao-scale').value = pp.sao.scale ?? 1
+        this.el.querySelector('#sp-sao-kernel').value = pp.sao.kernelRadius ?? 100
+      }
+      this.el.querySelector('#sp-ssr-toggle').classList.toggle('active', !!pp.ssr?.enabled)
+      if (pp.ssr) {
+        this.el.querySelector('#sp-ssr-opacity').value = pp.ssr.opacity ?? 0.5
+        this.el.querySelector('#sp-ssr-maxdist').value = pp.ssr.maxDistance ?? 180
+        this.el.querySelector('#sp-ssr-thickness').value = pp.ssr.thickness ?? 0.018
+      }
     }
 
     const m = state?.materials

@@ -364,3 +364,7 @@ select {
   background: rgba(0,0,0,0.1);
   border-radius: 2px;
 }
+
+#sp-export-image-btn {
+  margin-top: 4px;
+}

@@ -5,6 +5,7 @@ import { EnvironmentManager } from './modules/EnvironmentManager.js'
 import { LightingManager } from './modules/LightingManager.js'
 import { MaterialControls } from './modules/MaterialControls.js'
 import { CameraPresets } from './modules/CameraPresets.js'
+import { PostProcessing } from './modules/PostProcessing.js'
 import { ScenePanel } from './modules/ScenePanel.js'
 
 const container = document.getElementById('container-3d')
@@ -36,14 +37,17 @@ lighting.addLight('ambient', { color: 0xffffff, intensity: 0.5 })
 lighting.addLight('directional', { color: 0xffffff, intensity: 2, x: 5, y: 8, z: 5 })
 const materials = new MaterialControls()
 const presets = new CameraPresets(camera, controls)
+const postProcessing = new PostProcessing(renderer, scene, camera)
 
-const panel = new ScenePanel({ modelLoader, environment, lighting, materials, presets })
+const panel = new ScenePanel({ modelLoader, environment, lighting, materials, presets, postProcessing })
 
 function animate() {
   requestAnimationFrame(animate)
   controls.update()
   panel.update()
-  renderer.render(scene, camera)
+  if (!postProcessing.render()) {
+    renderer.render(scene, camera)
+  }
 }
 animate()
 
